@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پنل مدیریت جامع | کافی نت کارنت</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="admin-panel.css">
+    <link rel="icon" type="webp" href="images/logo.webp">
+    <!-- اضافه کردن Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body x-data="adminPanel()" x-init="init()">
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <a href="admin-panel.html" class="admin-sidebar__logo">
+            <img src="images/logo.webp" alt="لوگو" width="32" height="32" style="border-radius:8px;">
+            کارنت ادمین
+        </a>
+        <nav class="admin-sidebar__nav">
+            <ul>
+                <li><a href="#" @click.prevent="currentView = 'dashboard'" :class="{ 'active': currentView === 'dashboard' }"><i class="ph-bold ph-house"></i>داشبورد</a></li>
+                <li><a href="#" @click.prevent="currentView = 'articles'" :class="{ 'active': currentView === 'articles' }"><i class="ph-bold ph-note"></i>مدیریت مقالات</a></li>
+                <li><a href="#" @click.prevent="currentView = 'services'" :class="{ 'active': currentView === 'services' }"><i class="ph-bold ph-wrench"></i>مدیریت خدمات</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header">
+            <span class="admin-header__title">پنل مدیریت</span>
+            <button class="admin-header__logout" @click="logout()"><i class="ph-bold ph-sign-out"></i>خروج</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <section class="admin-section" x-show="currentView === 'dashboard'" x-cloak>
+            <div class="admin-section__title">خوش آمدید 👋</div>
+            <p>از منوی سمت راست، بخش مورد نظر را برای مدیریت انتخاب کنید.</p>
+        </section>
+
+        <!-- Articles Management Section -->
+        <section class="admin-section" x-show="currentView === 'articles'" x-cloak>
+            <!-- Article List View -->
+            <div x-show="!isArticleFormVisible()">
+                <div class="admin-section__title">لیست مقالات</div>
+                <table class="admin-articles__list">
+                    <thead><tr><th>تایتل</th><th>بخش</th><th>عملیات</th></tr></thead>
+                    <tbody>
+                        <template x-for="article in articles" :key="article.id">
+                            <tr>
+                                <td x-text="article.title"></td>
+                                <td x-text="article.category"></td>
+                                <td class="admin-articles__actions">
+                                    <button class="edit" @click="startEditArticle(article)" title="ویرایش"><i class="ph-bold ph-pencil-simple"></i></button>
+                                    <button class="delete" @click="deleteArticle(article.id)" title="حذف"><i class="ph-bold ph-trash"></i></button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="articles.length === 0"><td colspan="3" style="text-align: center;">مقاله‌ای وجود ندارد.</td></tr>
+                    </tbody>
+                </table>
+                <button @click="startCreateArticle()" style="margin-top:1.5rem;">ساخت مقاله جدید</button>
+            </div>
+            <!-- Article Create/Edit Form View -->
+            <form class="admin-form" @submit.prevent="saveArticle()" x-show="isArticleFormVisible()" x-cloak>
+                <h3 x-text="articleForm.id ? 'ویرایش مقاله' : 'ساخت مقاله جدید'"></h3>
+                <label>تایتل</label><input type="text" x-model="articleForm.title" required>
+                <label>بخش</label><input type="text" x-model="articleForm.category" required>
+                <label>تاریخ</label><input type="text" x-model="articleForm.date" required>
+                <label>آدرس تصویر</label><input type="text" x-model="articleForm.image" required>
+                <label>توضیح تکمیلی</label><textarea x-model="articleForm.introParagraph" required></textarea>
+                <label>سوال اصلی</label><input type="text" x-model="articleForm.mainQuestion" required>
+                <label>توضیحات</label><textarea x-model="articleForm.mainDescription" required></textarea>
+                <div class="points-container">
+                    <label>نکات</label>
+                    <template x-for="(point, index) in articleForm.points" :key="index">
+                        <div class="point-item"><input type="text" x-model="articleForm.points[index]"><button type="button" @click="articleForm.points.splice(index, 1)" class="remove-point-btn">&times;</button></div>
+                    </template>
+                    <button type="button" @click="articleForm.points.push('')" class="add-point-btn">افزودن نکته</button>
+                </div>
+                <label>توضیحات بخش دو</label><textarea x-model="articleForm.concludingParagraph" required></textarea>
+                <button type="submit" x-text="articleForm.id ? 'ذخیره تغییرات' : 'ثبت مقاله'"></button>
+                <button type="button" @click="cancelArticleForm()">انصراف</button>
+            </form>
+        </section>
+
+        <!-- Services Management Section -->
+        <section class="admin-section" x-show="currentView === 'services'" x-cloak>
+            <div class="admin-section__title">مدیریت خدمات و دسته‌بندی‌ها</div>
+            <div x-show="!isCategoryFormVisible && !isServiceFormVisible">
+                <template x-for="category in serviceCategories" :key="category.id">
+                    <div class="service-category-admin">
+                        <div class="category-header">
+                            <h4 x-text="category.title"></h4>
+                            <div>
+                                <button @click="startEditCategory(category)" class="edit">ویرایش دسته</button>
+                                <button @click="deleteCategory(category.id)" class="delete">حذف دسته</button>
+                            </div>
+                        </div>
+                        <div class="services-list">
+                            <template x-for="service in category.services" :key="service.id">
+                                <div class="service-item-admin">
+                                    <span><i :class="service.icon" style="margin-left: 8px;"></i><span x-text="service.name"></span></span>
+                                    <div>
+                                        <button @click="startEditService(service, category.id)" class="edit">ویرایش</button>
+                                        <button @click="deleteService(service.id, category.id)" class="delete">حذف</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="category.services.length === 0" style="text-align:center; padding: 1rem; color: #888;">هیچ سرویسی در این دسته نیست.</div>
+                        </div>
+                        <button @click="startCreateService(category.id)" style="margin-top: 1rem;">افزودن سرویس</button>
+                    </div>
+                </template>
+                <button @click="startCreateCategory()" style="margin-top: 1rem;">افزودن دسته‌بندی جدید</button>
+            </div>
+            <!-- Category Form -->
+            <form class="admin-form" @submit.prevent="saveCategory()" x-show="isCategoryFormVisible" x-cloak>
+                <h3 x-text="categoryForm.id ? 'ویرایش دسته‌بندی' : 'ساخت دسته‌بندی'"></h3>
+                <label>عنوان دسته‌بندی</label><input type="text" x-model="categoryForm.title" required>
+                <button type="submit">ذخیره</button><button type="button" @click="cancelCategoryForm()">انصراف</button>
+            </form>
+            <!-- Service Form -->
+            <form class="admin-form" @submit.prevent="saveService()" x-show="isServiceFormVisible" x-cloak>
+                <h3 x-text="serviceForm.id ? 'ویرایش سرویس' : 'ساخت سرویس'"></h3>
+                <label>نام سرویس</label><input type="text" x-model="serviceForm.name" required>
+                <label>آیکون</label><input type="text" x-model="serviceForm.icon" placeholder="ph-bold ph-car" required>
+                <label>لینک</label><input type="text" x-model="serviceForm.link" placeholder="khodro/khodro.html" required>
+                <button type="submit">ذخیره</button><button type="button" @click="cancelServiceForm()">انصراف</button>
+            </form>
+        </section>
+    </main>
+</div>
+
+<script>
+    function adminPanel() {
+        return {
+            // === SHARED STATE ===
+            currentView: 'dashboard',
+
+            // === ARTICLES STATE ===
+            articles: [{
+                id: 1, title: "چک صیادی چیست؟", category: "امور بانکی", date: "۱ خرداد ۱۴۰۳", image: "img.jpg",
+                introParagraph: "توضیح...", mainQuestion: "چرا؟", mainDescription: "توضیحات...",
+                points: ["نکته ۱", "نکته ۲"], concludingParagraph: "پایان..."
+            }],
+            isArticleFormActive: false,
+            articleForm: {},
+
+            // === SERVICES STATE ===
+            serviceCategories: [{ 
+                id: 1, title: "خودرو", services: [{ id: 101, name: "ثبت نام خودرو", icon: "ph-bold ph-car", link: "a.html" }]
+            }],
+            isCategoryFormVisible: false,
+            isServiceFormVisible: false,
+            categoryForm: {},
+            serviceForm: {},
+            currentCategoryId: null,
+
+            // === INITIALIZATION ===
+            init() {
+                this.resetArticleForm();
+                this.resetCategoryForm();
+                this.resetServiceForm();
+            },
+
+            // === ARTICLES ACTIONS ===
+            isArticleFormVisible() { return this.isArticleFormActive; },
+            resetArticleForm() { this.articleForm = { id: null, title: '', category: '', date: '', image: '', introParagraph: '', mainQuestion: '', mainDescription: '', points: [], concludingParagraph: '' }; },
+            startCreateArticle() { this.resetArticleForm(); this.isArticleFormActive = true; },
+            startEditArticle(article) { this.articleForm = JSON.parse(JSON.stringify(article)); this.isArticleFormActive = true; },
+            cancelArticleForm() { this.isArticleFormActive = false; },
+            saveArticle() {
+                if (!this.articleForm.title) return;
+                if (this.articleForm.id) {
+                    const index = this.articles.findIndex(a => a.id === this.articleForm.id);
+                    if (index !== -1) this.articles[index] = { ...this.articleForm };
+                } else {
+                    this.articles.push({ ...this.articleForm, id: Date.now() });
+                }
+                this.cancelArticleForm();
+            },
+            deleteArticle(id) { if (confirm("حذف شود؟")) { this.articles = this.articles.filter(a => a.id !== id); }},
+
+            // === SERVICES ACTIONS ===
+            resetCategoryForm() { this.categoryForm = { id: null, title: '' }; },
+            resetServiceForm() { this.serviceForm = { id: null, name: '', icon: '', link: '' }; },
+            startCreateCategory() { this.resetCategoryForm(); this.isCategoryFormVisible = true; },
+            startEditCategory(category) { this.categoryForm = { ...category }; this.isCategoryFormVisible = true; },
+            cancelCategoryForm() { this.isCategoryFormVisible = false; },
+            saveCategory() {
+                if (!this.categoryForm.title) return;
+                if (this.categoryForm.id) {
+                    const index = this.serviceCategories.findIndex(c => c.id === this.categoryForm.id);
+                    if (index !== -1) this.serviceCategories[index].title = this.categoryForm.title;
+                } else {
+                    this.serviceCategories.push({ id: Date.now(), title: this.categoryForm.title, services: [] });
+                }
+                this.cancelCategoryForm();
+            },
+            deleteCategory(id) { if (confirm("حذف شود؟")) { this.serviceCategories = this.serviceCategories.filter(c => c.id !== id); }},
+            startCreateService(catId) { this.resetServiceForm(); this.currentCategoryId = catId; this.isServiceFormVisible = true; },
+            startEditService(service, catId) { this.serviceForm = { ...service }; this.currentCategoryId = catId; this.isServiceFormVisible = true; },
+            cancelServiceForm() { this.isServiceFormVisible = false; },
+            saveService() {
+                if (!this.serviceForm.name) return;
+                const category = this.serviceCategories.find(c => c.id === this.currentCategoryId);
+                if (!category) return;
+                if (this.serviceForm.id) {
+                    const index = category.services.findIndex(s => s.id === this.serviceForm.id);
+                    if (index !== -1) category.services[index] = { ...this.serviceForm };
+                } else {
+                    category.services.push({ ...this.serviceForm, id: Date.now() });
+                }
+                this.cancelServiceForm();
+            },
+            deleteService(serviceId, catId) {
+                const category = this.serviceCategories.find(c => c.id === catId);
+                if (category && confirm("حذف شود؟")) {
+                    category.services = category.services.filter(s => s.id !== serviceId);
+                }
+            },
+            
+            // === GENERAL ACTIONS ===
+            logout() { alert("خروج"); window.location.href = "index.html"; }
+        }
+    }
+</script>
+</body>
+</html>
